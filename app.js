@@ -3,12 +3,159 @@
 // ============================================
 
 // 전역 변수
-let apiKey = localStorage.getItem('gemini_api_key') || 'AIzaSyD-k4tiMRVxKuTYyYavuV5Z0de-e8THvl4';
+let apiKey = localStorage.getItem('gemini_api_key') || '';
 let currentCards = [];
 let currentDomain = 'general';
 let currentCardIndex = 0;
 let currentTopic = '';
 let currentBusinessName = '';
+
+// 도메인+타겟별 주제 예시
+const DOMAIN_TARGET_TOPIC_EXAMPLES = {
+  hospital: {
+    '10대': { '학생': '청소년 치아교정, 언제 시작하면 좋을까?', 'default': '성장기 치아 관리의 중요성' },
+    '20대': { '직장인': '바쁜 직장인을 위한 점심시간 스케일링', '학생': '취준생 면접 전 치아미백 꿀팁', 'default': '20대 사랑니 발치 시기와 주의사항' },
+    '30대': { '직장인': '직장인 치아 미백, 점심시간에 가능할까?', '주부': '육아맘을 위한 치과 정기검진 가이드', 'default': '30대 잇몸 건강 관리법' },
+    '40대': { '직장인': '40대 직장인 임플란트 vs 브릿지 선택 가이드', '자영업자': '바쁜 사장님을 위한 빠른 치료 솔루션', 'default': '40대부터 시작하는 잇몸 질환 예방' },
+    '50대': { 'default': '50대 임플란트, 지금이 적기인 이유' },
+    '60대': { '은퇴자': '은퇴 후 치아 건강 관리 총정리', 'default': '60대 틀니 vs 임플란트 비교' },
+    '70대': { 'default': '어르신 맞춤 무통 임플란트 안내' },
+    'default': '치아 미백의 효과와 주의사항'
+  },
+  election: {
+    '20대': { '학생': '청년 일자리 창출 5대 공약', '직장인': '청년 주거 안정화 정책', 'default': '청년이 살기 좋은 도시 만들기' },
+    '30대': { '직장인': '워라밸 실현을 위한 정책 제안', '주부': '육아 지원 정책 강화 공약', 'default': '30대 맞벌이 가정 지원 정책' },
+    '40대': { 'default': '교육 환경 개선을 위한 비전' },
+    '50대': { 'default': '중장년 일자리 정책 제안' },
+    '60대': { '은퇴자': '노후 복지 강화 공약', 'default': '어르신 복지 증진 정책' },
+    'default': '우리 지역 발전을 위한 5대 공약'
+  },
+  education: {
+    '10대': { '학생': '중학생 내신 대비 학습 전략', 'default': '고등학교 입시 준비 가이드' },
+    '20대': { '학생': '대학생 취업 스펙 쌓기 전략', '직장인': '직장인 자격증 취득 가이드', 'default': '20대 자기계발 로드맵' },
+    '30대': { '직장인': '직장인 MBA 도전기', '주부': '육아와 병행하는 자격증 취득', 'default': '30대 커리어 전환 교육' },
+    '40대': { '자영업자': '사업주를 위한 경영 교육', 'default': '40대 제2의 인생 준비 교육' },
+    'default': '수학 성적 향상을 위한 학습법'
+  },
+  realestate: {
+    '20대': { '직장인': '사회초년생 첫 내집 마련 전략', 'default': '20대 청약 당첨 노하우' },
+    '30대': { '직장인': '신혼부부 아파트 청약 가이드', '맞벌이': '맞벌이 부부 내집 마련 전략', 'default': '30대 첫 아파트 구매 가이드' },
+    '40대': { '직장인': '자녀 학군 고려한 이사 전략', 'default': '40대 갈아타기 적기 분석' },
+    '50대': { 'default': '은퇴 준비 부동산 투자 전략' },
+    'default': '강남역 신축 오피스텔 분양 안내'
+  },
+  finance: {
+    '20대': { '직장인': '사회초년생 월급 관리법', '학생': '대학생 용돈 관리와 적금', 'default': '20대 재테크 첫걸음' },
+    '30대': { '직장인': '30대 직장인 자산 포트폴리오', '주부': '주부를 위한 생활비 절약 재테크', 'default': '30대 내집 마련 자금 모으기' },
+    '40대': { '자영업자': '자영업자 절세 전략', 'default': '40대 자녀 교육비 준비' },
+    '50대': { 'default': '50대 노후 자금 굴리기' },
+    '60대': { '은퇴자': '은퇴 후 연금 수령 전략', 'default': '60대 안정적인 자산 관리' },
+    'default': '30대를 위한 노후 준비 재테크'
+  },
+  beauty: {
+    '10대': { '학생': '10대 여드름 피부 관리법', 'default': '청소년 피부 트러블 해결법' },
+    '20대': { '직장인': '직장인 데일리 메이크업 꿀팁', '학생': '대학생 가성비 스킨케어', 'default': '20대 피부 탄력 유지 비법' },
+    '30대': { '직장인': '바쁜 직장맘 5분 메이크업', '주부': '육아맘 피부 회복 케어', 'default': '30대 안티에이징 시작하기' },
+    '40대': { 'default': '40대 주름 개선 집중 케어' },
+    '50대': { 'default': '50대 피부 탄력 회복 프로그램' },
+    'default': '여름철 피부 관리 꿀팁'
+  },
+  food: {
+    '10대': { '학생': '수험생 집중력 높이는 영양 식단', 'default': '성장기 청소년 영양 만점 메뉴' },
+    '20대': { '직장인': '직장인 점심 도시락 메뉴 추천', '학생': '자취생 간편 요리 레시피', 'default': '20대 건강 다이어트 식단' },
+    '30대': { '직장인': '야근러를 위한 건강 야식', '주부': '온가족 영양 만점 집밥', 'default': '30대 건강 밥상 차리기' },
+    '40대': { '자영업자': '바쁜 사장님 건강 식단', 'default': '40대 성인병 예방 식단' },
+    '50대': { 'default': '50대 혈압/혈당 관리 식단' },
+    '60대': { '은퇴자': '어르신 건강 보양식 추천', 'default': '60대 소화 잘되는 건강식' },
+    'default': '건강한 다이어트 도시락 메뉴'
+  },
+  general: {
+    'default': '효과적인 시간 관리 방법'
+  },
+  custom: {
+    'default': '우리 서비스의 특별한 장점'
+  }
+};
+
+// 도메인별 업체명 예시
+const DOMAIN_BUSINESS_EXAMPLES = {
+  hospital: '화이트서울치과',
+  election: '홍길동 후보 캠프',
+  education: '스마트러닝 학원',
+  realestate: '강남프라임 부동산',
+  finance: '미래에셋 보험설계사',
+  beauty: '글로우업 뷰티샵',
+  food: '맛있는 밥상',
+  general: '우리 회사',
+  custom: '우리 업체'
+};
+
+// 도메인+타겟별 핵심 메시지 예시
+const DOMAIN_TARGET_MESSAGE_EXAMPLES = {
+  hospital: {
+    '10대': { '학생': '성장기에 맞는 교정 치료로 평생 가는 바른 치아를 만들어 드립니다. 학업에 지장 없는 방학 집중 치료!', 'default': '청소년 눈높이에 맞춘 친절한 진료로 치과 공포증 없이 건강한 치아를 지켜드립니다.' },
+    '20대': { '직장인': '점심시간 30분 스케일링부터 퇴근 후 야간 진료까지! 바쁜 직장인 스케줄에 맞춘 맞춤 진료를 제공합니다.', '학생': '취업 면접 전 환한 미소를 준비하세요. 학생 할인으로 부담 없이 미백 치료를 받으실 수 있습니다.', 'default': '20대 맞춤 치아 관리로 평생 건강한 치아를 유지하세요.' },
+    '30대': { '직장인': '바쁜 일상 속에서도 치아 건강을 지키세요. 점심시간 이용 가능한 빠른 진료 시스템을 운영합니다.', '주부': '아이 케어하랴 집안일하랴 바쁜 엄마들을 위한 원스톱 가족 치과 진료를 제공합니다.', 'default': '30대부터 시작하는 잇몸 건강 관리! 전문의 상담으로 맞춤 치료 계획을 세워드립니다.' },
+    '40대': { '직장인': '중요한 비즈니스 미팅을 위한 자신감 있는 미소! 자연스러운 심미 치료로 이미지 업그레이드하세요.', '자영업자': '바쁜 사장님도 건강은 챙기셔야죠. 예약제 운영으로 대기 없이 빠른 진료를 받으실 수 있습니다.', 'default': '40대 구강 건강 종합 검진으로 잇몸 질환을 미리 예방하세요.' },
+    '50대': { 'default': '50대 맞춤 임플란트 상담! 풍부한 경험의 전문의가 최적의 치료 방법을 제안해 드립니다.' },
+    '60대': { '은퇴자': '여유로운 은퇴 생활, 건강한 치아와 함께하세요. 어르신 전용 케어 프로그램을 운영합니다.', 'default': '60대 눈높이에 맞춘 친절한 상담과 꼼꼼한 진료로 편안한 치과 경험을 선사합니다.' },
+    '70대': { 'default': '어르신의 편안한 식사를 위한 맞춤 보철 치료! 무통 진료로 부담 없이 방문하세요.' },
+    'default': '전문 치과에서 안전하고 효과적인 치료를 받아보세요.'
+  },
+  election: {
+    '20대': { '학생': '청년의 꿈을 응원합니다! 일자리 창출과 주거 안정으로 희망찬 미래를 만들어 가겠습니다.', '직장인': '워라밸이 보장되는 일터를 만들겠습니다. 청년 직장인의 목소리에 귀 기울이겠습니다.', 'default': '청년이 행복한 도시! 여러분의 목소리로 변화를 만들어 갑니다.' },
+    '30대': { '직장인': '일과 가정의 균형을 지원합니다. 육아휴직 활성화와 보육 시설 확충으로 함께 성장하는 사회를 만들겠습니다.', '주부': '안심하고 아이 키울 수 있는 환경을 만들겠습니다. 촘촘한 육아 지원 정책을 약속드립니다.', 'default': '30대 가정의 행복을 위해 실질적인 지원 정책을 펼치겠습니다.' },
+    '40대': { 'default': '자녀 교육 걱정 없는 도시! 공교육 정상화와 교육 환경 개선에 최선을 다하겠습니다.' },
+    '50대': { 'default': '인생 2막을 응원합니다! 중장년 재취업 지원과 평생교육 기회를 확대하겠습니다.' },
+    '60대': { '은퇴자': '노후가 행복한 도시를 만들겠습니다. 어르신 복지 증진과 일자리 창출에 힘쓰겠습니다.', 'default': '건강하고 활기찬 노년을 위한 정책을 펼치겠습니다.' },
+    'default': '주민 여러분의 목소리에 귀 기울이겠습니다. 실현 가능한 공약으로 지역 발전에 앞장서겠습니다.'
+  },
+  education: {
+    '10대': { '학생': '내신과 수능을 한 번에! 체계적인 커리큘럼으로 목표 대학 합격을 도와드립니다.', 'default': '학생 개개인의 수준에 맞춘 1:1 맞춤 학습으로 성적 향상을 보장합니다.' },
+    '20대': { '학생': '취업 경쟁력을 높이는 실무 중심 교육! 자격증 취득부터 포트폴리오까지 완벽 지원합니다.', '직장인': '퇴근 후 자기계발! 직장인 맞춤 야간/주말 강좌로 커리어 업그레이드하세요.', 'default': '20대의 무한한 가능성을 깨우는 맞춤형 교육 프로그램을 제공합니다.' },
+    '30대': { '직장인': '바쁜 직장인도 할 수 있습니다! 온라인 병행 과정으로 시간과 장소의 제약 없이 학습하세요.', '주부': '육아와 병행 가능한 유연한 수업 스케줄! 엄마의 꿈도 포기하지 마세요.', 'default': '30대 커리어 전환을 위한 전문 교육 과정을 운영합니다.' },
+    '40대': { '자영업자': '사업 성공을 위한 경영 노하우! 실전 중심 CEO 교육 과정을 만나보세요.', 'default': '인생 2막을 준비하는 40대를 위한 재교육 프로그램을 제공합니다.' },
+    'default': '체계적인 커리큘럼으로 학습 목표 달성을 도와드립니다.'
+  },
+  realestate: {
+    '20대': { '직장인': '사회초년생도 내집 마련 가능합니다! 청약 전략부터 대출 상담까지 원스톱으로 도와드립니다.', 'default': '20대 눈높이에 맞춘 부동산 컨설팅으로 첫 내집 마련을 응원합니다.' },
+    '30대': { '직장인': '신혼집부터 학군 좋은 아파트까지! 라이프스타일에 맞는 최적의 매물을 추천해 드립니다.', '주부': '아이 키우기 좋은 환경, 꼼꼼히 따져보셨나요? 학군과 생활 인프라를 분석해 드립니다.', 'default': '30대 가정에 딱 맞는 주거 공간을 찾아드립니다.' },
+    '40대': { '직장인': '자녀 교육과 출퇴근을 모두 고려한 최적의 입지! 맞춤 매물을 추천해 드립니다.', 'default': '갈아타기 적기입니다! 시세 분석과 투자 전략을 상담해 드립니다.' },
+    '50대': { 'default': '은퇴 후를 대비한 수익형 부동산 투자! 안정적인 임대 수익을 설계해 드립니다.' },
+    'default': '역세권 프리미엄 입지! 투자가치와 실거주 만족도를 모두 갖춘 최적의 선택을 안내해 드립니다.'
+  },
+  finance: {
+    '20대': { '직장인': '첫 월급부터 시작하는 재테크! 적금, 펀드, 보험까지 사회초년생 맞춤 포트폴리오를 설계해 드립니다.', '학생': '용돈도 굴릴 수 있습니다! 소액으로 시작하는 재테크 습관을 만들어 드립니다.', 'default': '20대부터 시작하는 현명한 자산 관리! 미래를 위한 첫걸음을 함께합니다.' },
+    '30대': { '직장인': '내집 마련과 노후 준비를 동시에! 30대 맞춤 자산 포트폴리오를 설계해 드립니다.', '주부': '생활비 절약하면서 목돈 만들기! 주부 맞춤 재테크 노하우를 알려드립니다.', 'default': '30대 황금기를 놓치지 마세요! 체계적인 자산 관리로 부자 되는 길을 안내합니다.' },
+    '40대': { '자영업자': '사업자금과 개인자산 분리 관리! 절세 전략까지 한 번에 상담해 드립니다.', 'default': '자녀 교육비와 노후 자금, 두 마리 토끼를 잡는 전략을 제안합니다.' },
+    '50대': { 'default': '은퇴 D-10년! 지금부터 준비하면 여유로운 노후가 가능합니다.' },
+    '60대': { '은퇴자': '연금 수령 최적화 전략! 은퇴 자금을 안전하게 굴리는 방법을 알려드립니다.', 'default': '안정적인 노후를 위한 자산 관리! 원금 보장형 상품을 추천해 드립니다.' },
+    'default': '전문 상담사가 고객님의 상황에 맞는 최적의 재테크 솔루션을 제안합니다.'
+  },
+  beauty: {
+    '10대': { '학생': '사춘기 피부 고민 해결! 여드름 전문 케어로 자신감을 되찾아 드립니다.', 'default': '청소년 피부에 맞는 순한 성분으로 건강한 피부 습관을 만들어 드립니다.' },
+    '20대': { '직장인': '퇴근 후 30분 관리로 피로한 피부를 케어하세요. 직장인 맞춤 스피드 관리를 제공합니다.', '학생': '가성비 좋은 학생 전용 프로그램! 부담 없이 피부 관리를 시작하세요.', 'default': '20대 피부 황금기를 유지하는 맞춤 케어 솔루션을 제안합니다.' },
+    '30대': { '직장인': '스트레스와 피로에 지친 피부를 위한 집중 케어! 안티에이징의 골든타임을 놓치지 마세요.', '주부': '육아에 지친 피부도 회복할 수 있습니다! 엄마를 위한 힐링 케어를 경험하세요.', 'default': '30대부터 시작하는 안티에이징! 주름이 생기기 전에 예방하세요.' },
+    '40대': { 'default': '40대 피부 고민 집중 케어! 탄력과 윤기를 되찾는 프리미엄 프로그램을 만나보세요.' },
+    '50대': { 'default': '50대 피부도 아름다울 수 있습니다! 리프팅과 탄력 케어로 젊음을 되찾으세요.' },
+    'default': '피부 전문가의 1:1 맞춤 케어로 건강한 피부를 선물합니다.'
+  },
+  food: {
+    '10대': { '학생': '공부하는 우리 아이 두뇌 발달을 위한 영양 만점 식단! 맛있고 건강하게 먹여주세요.', 'default': '성장기 청소년에게 필요한 영양소를 골고루 담은 균형 잡힌 식단을 제공합니다.' },
+    '20대': { '직장인': '바쁜 직장인을 위한 간편하고 건강한 한 끼! 도시락 정기 배송으로 점심 고민을 해결하세요.', '학생': '자취생 필수! 간편하게 조리해서 맛있게 먹는 건강 밀키트를 만나보세요.', 'default': '20대 입맛과 건강을 동시에 잡는 맛있는 식단을 제공합니다.' },
+    '30대': { '직장인': '야근해도 건강하게! 늦은 밤에도 부담 없이 먹을 수 있는 건강 야식을 준비했습니다.', '주부': '온 가족이 맛있게 먹을 수 있는 건강 집밥! 식재료부터 레시피까지 제공합니다.', 'default': '30대 가정의 건강한 밥상을 책임집니다.' },
+    '40대': { '자영업자': '바쁜 일상에도 건강을 챙기세요! 간편하게 먹는 영양 가득 건강식을 준비했습니다.', 'default': '40대 건강을 지키는 맛있는 습관! 성인병 예방 식단을 경험하세요.' },
+    '50대': { 'default': '혈압, 혈당 관리가 필요한 50대를 위한 저염·저당 건강식을 제공합니다.' },
+    '60대': { '은퇴자': '소화 잘 되고 영양 가득한 어르신 맞춤 건강식! 부드럽고 맛있게 드세요.', 'default': '60대 건강을 위한 맞춤 영양식을 정성껏 준비합니다.' },
+    'default': '신선한 재료로 정성껏 만든 건강한 한 끼를 경험하세요.'
+  },
+  general: {
+    'default': '고객님의 만족을 최우선으로 생각합니다. 믿을 수 있는 전문 서비스로 최상의 결과를 약속드립니다.'
+  },
+  custom: {
+    'default': '차별화된 서비스와 전문성으로 고객님께 최고의 가치를 제공하겠습니다.'
+  }
+};
 
 // 도메인별 이미지 키워드
 const DOMAIN_IMAGE_KEYWORDS = {
@@ -126,6 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (apiKey) {
     document.getElementById('api-key-input').value = apiKey;
     showApiKeyStatus('API 키가 저장되어 있습니다.', 'success');
+  } else {
+    showApiKeyStatus('Gemini API 키를 입력해주세요.', 'warning');
   }
 
   // 폼 제출 이벤트
@@ -133,6 +282,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 초기 키워드 버튼 생성
   updateKeywordButtons();
+
+  // 초기 주제 placeholder 설정
+  updateTopicPlaceholder();
+
+  // 초기 핵심 메시지 placeholder 설정
+  updateMessagePlaceholder();
 });
 
 // 선택된 연령대와 직업군
@@ -187,15 +342,22 @@ function selectDomain(domain) {
 
   // 모든 버튼 스타일 초기화
   document.querySelectorAll('.domain-btn').forEach(btn => {
-    btn.classList.remove('border-blue-500', 'bg-blue-500', 'text-white');
-    btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+    btn.classList.remove('border-emerald-500', 'bg-emerald-500', 'text-white', 'shadow-md');
+    btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
   });
+
+  // 직접입력 버튼 기본 스타일 복원
+  const customBtn = document.getElementById('domain-btn-custom');
+  if (customBtn && domain !== 'custom') {
+    customBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+    customBtn.classList.add('border-dashed', 'border-emerald-400', 'bg-emerald-50', 'text-emerald-600');
+  }
 
   // 선택된 버튼 스타일 적용
   const selectedBtn = document.getElementById(`domain-btn-${domain}`);
   if (selectedBtn) {
-    selectedBtn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
-    selectedBtn.classList.add('border-blue-500', 'bg-blue-500', 'text-white');
+    selectedBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600', 'border-dashed', 'border-emerald-400', 'bg-emerald-50', 'text-emerald-600');
+    selectedBtn.classList.add('border-emerald-500', 'bg-emerald-500', 'text-white', 'shadow-md');
   }
 
   // 직접입력 선택 시 입력창 표시
@@ -204,6 +366,18 @@ function selectDomain(domain) {
     customInputWrap.classList.remove('hidden');
   } else {
     customInputWrap.classList.add('hidden');
+  }
+
+  // 주제 입력란 placeholder 업데이트 (도메인+타겟 기반)
+  updateTopicPlaceholder();
+
+  // 핵심 메시지 입력란 placeholder 업데이트 (도메인+타겟 기반)
+  updateMessagePlaceholder();
+
+  // 업체명 입력란 placeholder 업데이트
+  const businessInput = document.getElementById('business-name');
+  if (businessInput) {
+    businessInput.placeholder = DOMAIN_BUSINESS_EXAMPLES[domain] || DOMAIN_BUSINESS_EXAMPLES.general;
   }
 
   // 키워드 버튼 업데이트
@@ -249,22 +423,63 @@ function applyCustomDomain() {
 // ============================================
 // 톤앤매너 선택
 // ============================================
+let customToneName = '';
+
 function selectTone(tone) {
   // hidden input 값 업데이트
   document.getElementById('tone').value = tone;
 
   // 모든 버튼 스타일 초기화
   document.querySelectorAll('.tone-btn').forEach(btn => {
-    btn.classList.remove('border-slate-500', 'bg-slate-500', 'text-white');
-    btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+    btn.classList.remove('border-slate-600', 'bg-slate-600', 'text-white', 'shadow-md');
+    btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
   });
+
+  // 직접입력 버튼 기본 스타일 복원
+  const customBtn = document.getElementById('tone-btn-custom');
+  if (customBtn && tone !== 'custom') {
+    customBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+    customBtn.classList.add('border-dashed', 'border-slate-400', 'bg-slate-100', 'text-slate-500');
+  }
 
   // 선택된 버튼 스타일 적용
   const selectedBtn = document.getElementById(`tone-btn-${tone}`);
   if (selectedBtn) {
-    selectedBtn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
-    selectedBtn.classList.add('border-slate-500', 'bg-slate-500', 'text-white');
+    selectedBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600', 'border-dashed', 'border-slate-400', 'bg-slate-100', 'text-slate-500');
+    selectedBtn.classList.add('border-slate-600', 'bg-slate-600', 'text-white', 'shadow-md');
   }
+
+  // 직접입력 선택 시 입력창 표시
+  const customInputWrap = document.getElementById('custom-tone-input-wrap');
+  if (tone === 'custom') {
+    customInputWrap.classList.remove('hidden');
+  } else {
+    customInputWrap.classList.add('hidden');
+  }
+}
+
+// 커스텀 톤앤매너 적용
+function applyCustomTone() {
+  const input = document.getElementById('custom-tone-input');
+  const toneName = input.value.trim();
+
+  if (!toneName) {
+    alert('톤앤매너를 입력해주세요.');
+    return;
+  }
+
+  customToneName = toneName;
+
+  // TONE_MAP에 커스텀 톤 추가
+  TONE_MAP.custom = toneName;
+
+  // 버튼 텍스트 변경
+  const customBtn = document.getElementById('tone-btn-custom');
+  if (customBtn) {
+    customBtn.textContent = toneName;
+  }
+
+  alert(`"${toneName}" 톤앤매너가 적용되었습니다.`);
 }
 
 // ============================================
@@ -276,37 +491,82 @@ function selectAge(age) {
 
   // 모든 버튼 스타일 초기화
   document.querySelectorAll('.age-btn').forEach(btn => {
-    btn.classList.remove('border-green-500', 'bg-green-500', 'text-white');
-    btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+    btn.classList.remove('border-violet-500', 'bg-violet-500', 'text-white', 'shadow-md');
+    btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
   });
 
   // 선택된 버튼 스타일 적용
   const selectedBtn = document.getElementById(`age-btn-${age}`);
   if (selectedBtn) {
-    selectedBtn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
-    selectedBtn.classList.add('border-green-500', 'bg-green-500', 'text-white');
+    selectedBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+    selectedBtn.classList.add('border-violet-500', 'bg-violet-500', 'text-white', 'shadow-md');
   }
 }
 
 // ============================================
 // 직업군 선택
 // ============================================
+let customJobName = '';
+
 function selectJob(job) {
-  selectedJob = job;
+  selectedJob = job === 'custom' ? (customJobName || '직접입력') : job;
   updateTargetAudience();
 
   // 모든 버튼 스타일 초기화
   document.querySelectorAll('.job-btn').forEach(btn => {
-    btn.classList.remove('border-purple-500', 'bg-purple-500', 'text-white');
-    btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+    btn.classList.remove('border-purple-500', 'bg-purple-500', 'text-white', 'shadow-md');
+    btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
   });
+
+  // 직접입력 버튼 기본 스타일 복원
+  const customBtn = document.getElementById('job-btn-custom');
+  if (customBtn && job !== 'custom') {
+    customBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+    customBtn.classList.add('border-dashed', 'border-purple-400', 'bg-purple-50', 'text-purple-600');
+  }
 
   // 선택된 버튼 스타일 적용
   const selectedBtn = document.getElementById(`job-btn-${job}`);
   if (selectedBtn) {
-    selectedBtn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
-    selectedBtn.classList.add('border-purple-500', 'bg-purple-500', 'text-white');
+    selectedBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600', 'border-dashed', 'border-purple-400', 'bg-purple-50', 'text-purple-600');
+    selectedBtn.classList.add('border-purple-500', 'bg-purple-500', 'text-white', 'shadow-md');
   }
+
+  // 직접입력 선택 시 입력창 표시
+  const customInputWrap = document.getElementById('custom-job-input-wrap');
+  if (job === 'custom') {
+    customInputWrap.classList.remove('hidden');
+  } else {
+    customInputWrap.classList.add('hidden');
+  }
+}
+
+// 커스텀 직업군 적용
+function applyCustomJob() {
+  const input = document.getElementById('custom-job-input');
+  const jobName = input.value.trim();
+
+  if (!jobName) {
+    alert('직업군을 입력해주세요.');
+    return;
+  }
+
+  customJobName = jobName;
+  selectedJob = jobName;
+
+  // JOB_KEYWORDS에 커스텀 직업 추가
+  JOB_KEYWORDS[jobName] = ['맞춤서비스', '전문상담', '편리함', '효율적'];
+
+  // 버튼 텍스트 변경
+  const customBtn = document.getElementById('job-btn-custom');
+  if (customBtn) {
+    customBtn.textContent = jobName;
+  }
+
+  // 타겟 대상 및 키워드 업데이트
+  updateTargetAudience();
+
+  alert(`"${jobName}" 직업군이 적용되었습니다.`);
 }
 
 // ============================================
@@ -315,8 +575,64 @@ function selectJob(job) {
 function updateTargetAudience() {
   const targetAudience = `${selectedAge} ${selectedJob}`;
   document.getElementById('target-audience').value = targetAudience;
-  // 키워드도 업데이트
+  // 키워드 업데이트
   updateKeywordButtons();
+  // 주제 placeholder 업데이트
+  updateTopicPlaceholder();
+  // 핵심 메시지 placeholder 업데이트
+  updateMessagePlaceholder();
+}
+
+// ============================================
+// 주제 placeholder 업데이트 (도메인+타겟 기반)
+// ============================================
+function updateTopicPlaceholder() {
+  const domain = document.getElementById('domain').value;
+  const topicInput = document.getElementById('topic');
+
+  if (!topicInput) return;
+
+  // 도메인별 타겟 예시 가져오기
+  const domainTopics = DOMAIN_TARGET_TOPIC_EXAMPLES[domain] || DOMAIN_TARGET_TOPIC_EXAMPLES.general;
+
+  // 연령대별 예시 찾기
+  const ageTopics = domainTopics[selectedAge] || domainTopics['default'] || {};
+
+  // 직업군별 예시 찾기
+  let topicExample;
+  if (typeof ageTopics === 'string') {
+    topicExample = ageTopics;
+  } else {
+    topicExample = ageTopics[selectedJob] || ageTopics['default'] || domainTopics['default'] || '주제를 입력하세요';
+  }
+
+  topicInput.placeholder = topicExample;
+}
+
+// ============================================
+// 핵심 메시지 placeholder 업데이트 (도메인+타겟 기반)
+// ============================================
+function updateMessagePlaceholder() {
+  const domain = document.getElementById('domain').value;
+  const messageInput = document.getElementById('main-message');
+
+  if (!messageInput) return;
+
+  // 도메인별 타겟 예시 가져오기
+  const domainMessages = DOMAIN_TARGET_MESSAGE_EXAMPLES[domain] || DOMAIN_TARGET_MESSAGE_EXAMPLES.general;
+
+  // 연령대별 예시 찾기
+  const ageMessages = domainMessages[selectedAge] || domainMessages['default'] || {};
+
+  // 직업군별 예시 찾기
+  let messageExample;
+  if (typeof ageMessages === 'string') {
+    messageExample = ageMessages;
+  } else {
+    messageExample = ageMessages[selectedJob] || ageMessages['default'] || domainMessages['default'] || '핵심 메시지를 입력하세요';
+  }
+
+  messageInput.placeholder = messageExample;
 }
 
 // ============================================
@@ -342,14 +658,14 @@ function updateKeywordButtons() {
   container.innerHTML = displayKeywords.map(keyword => {
     const isSelected = selectedKeywords.includes(keyword);
     const selectedClass = isSelected
-      ? 'border-orange-500 bg-orange-500 text-white'
-      : 'border-slate-300 bg-white text-slate-700 hover:border-orange-300';
+      ? 'border-cyan-500 bg-cyan-500 text-white shadow-md'
+      : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-cyan-50';
     return `
       <button
         type="button"
         onclick="toggleKeyword('${keyword}')"
         id="keyword-btn-${keyword}"
-        class="keyword-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 ${selectedClass}"
+        class="keyword-btn select-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${selectedClass}"
       >
         ${keyword}
       </button>
@@ -377,11 +693,11 @@ function toggleKeyword(keyword) {
   const btn = document.getElementById(`keyword-btn-${keyword}`);
   if (btn) {
     if (selectedKeywords.includes(keyword)) {
-      btn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
-      btn.classList.add('border-orange-500', 'bg-orange-500', 'text-white');
+      btn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+      btn.classList.add('border-cyan-500', 'bg-cyan-500', 'text-white', 'shadow-md');
     } else {
-      btn.classList.remove('border-orange-500', 'bg-orange-500', 'text-white');
-      btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+      btn.classList.remove('border-cyan-500', 'bg-cyan-500', 'text-white', 'shadow-md');
+      btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
     }
   }
 
@@ -412,7 +728,7 @@ function addCustomKeyword() {
   const newBtn = document.createElement('button');
   newBtn.type = 'button';
   newBtn.id = `keyword-btn-${keyword}`;
-  newBtn.className = 'keyword-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-orange-500 bg-orange-500 text-white';
+  newBtn.className = 'keyword-btn select-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 border-cyan-500 bg-cyan-500 text-white shadow-md';
   newBtn.textContent = keyword;
   newBtn.onclick = () => toggleKeyword(keyword);
   container.appendChild(newBtn);
@@ -443,7 +759,8 @@ function saveApiKey() {
 function showApiKeyStatus(message, type) {
   const status = document.getElementById('api-key-status');
   status.textContent = message;
-  status.className = `text-sm mt-2 ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
+  const colorClass = type === 'success' ? 'text-green-600' : type === 'warning' ? 'text-amber-600' : 'text-red-600';
+  status.className = `text-sm mt-2 ${colorClass}`;
   status.classList.remove('hidden');
 }
 
@@ -828,24 +1145,54 @@ function showCard(index) {
   container.innerHTML = renderCard(card, index);
 }
 
-function getImageId(card, index) {
-  // 카드 타입과 인덱스 기반으로 일관된 이미지 ID 생성
-  const baseIds = {
-    HOOK: [1005, 1015, 1025, 1035, 1045],
-    EMPATHY: [1006, 1016, 1026, 1036, 1046],
-    PROBLEM: [1008, 1018, 1028, 1038, 1048],
-    SOLUTION: [1009, 1019, 1029, 1039, 1049],
-    CTA: [1011, 1021, 1031, 1041, 1051]
+// 카드 내용 기반 이미지 키워드 생성
+function getImageKeywords(card, domain) {
+  // 도메인별 기본 키워드
+  const domainKeywords = {
+    hospital: ['dental,clinic', 'dentist,smile', 'medical,health', 'teeth,white', 'doctor,care'],
+    election: ['vote,democracy', 'community,people', 'city,future', 'handshake,trust', 'speech,leader'],
+    education: ['study,learning', 'classroom,student', 'book,education', 'graduation,success', 'teacher,school'],
+    realestate: ['apartment,building', 'house,home', 'interior,modern', 'city,skyline', 'architecture,design'],
+    finance: ['money,investment', 'business,growth', 'chart,success', 'savings,piggybank', 'financial,planning'],
+    beauty: ['skincare,beauty', 'spa,wellness', 'cosmetics,makeup', 'facial,treatment', 'woman,glow'],
+    food: ['food,delicious', 'restaurant,dining', 'cooking,kitchen', 'healthy,meal', 'chef,cuisine'],
+    general: ['business,professional', 'success,team', 'office,modern', 'handshake,deal', 'growth,achievement'],
+    custom: ['business,service', 'professional,quality', 'success,team', 'modern,office', 'customer,satisfaction']
   };
-  const ids = baseIds[card.type] || baseIds.HOOK;
-  return ids[index % ids.length];
+
+  // 카드 타입별 추가 키워드
+  const typeKeywords = {
+    HOOK: ['attention,surprise', 'question,curious', 'wow,amazing', 'highlight,focus', 'interest,discover'],
+    EMPATHY: ['understanding,care', 'emotion,support', 'together,help', 'listen,comfort', 'family,warm'],
+    PROBLEM: ['challenge,problem', 'worry,concern', 'stress,difficulty', 'question,think', 'solution,search'],
+    SOLUTION: ['solution,success', 'answer,help', 'happy,satisfaction', 'thumbsup,great', 'achievement,win'],
+    CTA: ['action,start', 'contact,call', 'click,button', 'phone,message', 'appointment,schedule']
+  };
+
+  // 도메인 키워드 선택
+  const domainKw = domainKeywords[domain] || domainKeywords.general;
+  const typeKw = typeKeywords[card.type] || typeKeywords.HOOK;
+
+  // 카드 인덱스에 따라 키워드 조합
+  const cardIndex = CARD_TYPES.indexOf(card.type);
+  const primaryKw = domainKw[cardIndex % domainKw.length];
+  const secondaryKw = typeKw[cardIndex % typeKw.length];
+
+  return `${primaryKw},${secondaryKw.split(',')[0]}`;
+}
+
+// 이미지 URL 생성 (Unsplash Source API 사용)
+function getCardImageUrl(card, domain, width = 800, height = 1000) {
+  const keywords = getImageKeywords(card, domain);
+  // 캐시 방지를 위한 고유 시그니처
+  const sig = `${card.type}-${domain}-${Date.now()}`;
+  return `https://source.unsplash.com/${width}x${height}/?${keywords}&sig=${sig}`;
 }
 
 function renderCard(card, index) {
   const colors = CARD_TYPE_COLORS[card.type];
-  // Lorem Picsum - 안정적인 무료 이미지 서비스
-  const imageId = getImageId(card, index);
-  const imageUrl = `https://picsum.photos/id/${imageId}/800/1000`;
+  // Unsplash - 카드 내용에 맞는 이미지
+  const imageUrl = getCardImageUrl(card, currentDomain, 800, 1000);
 
   return `
     <div id="card-${index}" class="w-[400px] h-[500px] rounded-2xl overflow-hidden shadow-xl text-white flex flex-col relative">
@@ -885,7 +1232,7 @@ function renderCard(card, index) {
       <!-- Footer -->
       <div class="relative z-10 p-6 pt-4">
         <div class="text-center">
-          <span class="text-lg font-black text-white" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">${currentBusinessName}</span>
+          <span class="text-lg font-black text-yellow-300" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">${currentBusinessName}</span>
         </div>
       </div>
     </div>
@@ -895,8 +1242,7 @@ function renderCard(card, index) {
 function renderAllCardsPreview(cards) {
   const container = document.getElementById('all-cards-container');
   container.innerHTML = cards.map((card, index) => {
-    const imageId = getImageId(card, index);
-    const imageUrl = `https://picsum.photos/id/${imageId}/240/300`;
+    const imageUrl = getCardImageUrl(card, currentDomain, 240, 300);
 
     return `
       <div onclick="showCard(${index})" class="cursor-pointer transform hover:scale-105 transition">

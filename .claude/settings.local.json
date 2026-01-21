@@ -8,7 +8,10 @@
       "Bash(git remote add:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: AI CardNews Generator\n\n- 5-card structure \\(HOOK → EMPATHY → PROBLEM → SOLUTION → CTA\\)\n- 8 domains support \\(병원/의료, 선거/정치, 교육, 부동산, 금융/보험, 뷰티/미용, 음식/요식업, 직접입력\\)\n- Google Gemini API integration\n- Dynamic keywords based on domain/age/job\n- PNG download via html2canvas\n- Standalone HTML+JS version for local use\n- Next.js version with TypeScript\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
