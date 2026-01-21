@@ -9,6 +9,10 @@ let currentDomain = 'general';
 let currentCardIndex = 0;
 let currentTopic = '';
 let currentBusinessName = '';
+let currentContactNumber = '';
+
+// 저장된 업체 정보 목록
+let savedBusinessInfoList = JSON.parse(localStorage.getItem('saved_business_info') || '[]');
 
 // 도메인+타겟별 주제 예시
 const DOMAIN_TARGET_TOPIC_EXAMPLES = {
@@ -88,6 +92,19 @@ const DOMAIN_BUSINESS_EXAMPLES = {
   food: '맛있는 밥상',
   general: '우리 회사',
   custom: '우리 업체'
+};
+
+// 도메인별 연락처 예시
+const DOMAIN_CONTACT_EXAMPLES = {
+  hospital: '02-1234-5678',
+  election: '010-1234-5678',
+  education: '02-123-4567',
+  realestate: '02-555-1234',
+  finance: '010-9876-5432',
+  beauty: '02-777-8888',
+  food: '02-333-4444',
+  general: '02-000-0000',
+  custom: '02-000-0000'
 };
 
 // 도메인+타겟별 핵심 메시지 예시
@@ -288,6 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 초기 핵심 메시지 placeholder 설정
   updateMessagePlaceholder();
+
+  // 업체 정보 배지 초기화
+  updateBusinessCountBadge();
 });
 
 // 선택된 연령대와 직업군
@@ -378,6 +398,12 @@ function selectDomain(domain) {
   const businessInput = document.getElementById('business-name');
   if (businessInput) {
     businessInput.placeholder = DOMAIN_BUSINESS_EXAMPLES[domain] || DOMAIN_BUSINESS_EXAMPLES.general;
+  }
+
+  // 연락처 입력란 placeholder 업데이트
+  const contactInput = document.getElementById('contact-number');
+  if (contactInput) {
+    contactInput.placeholder = DOMAIN_CONTACT_EXAMPLES[domain] || DOMAIN_CONTACT_EXAMPLES.general;
   }
 
   // 키워드 버튼 업데이트
@@ -776,6 +802,7 @@ async function handleSubmit(e) {
   }
 
   const businessName = document.getElementById('business-name').value.trim();
+  const contactNumber = document.getElementById('contact-number').value.trim();
   const domain = document.getElementById('domain').value;
   const topic = document.getElementById('topic').value.trim();
   const targetAudience = document.getElementById('target-audience').value.trim();
@@ -783,13 +810,14 @@ async function handleSubmit(e) {
   const keywords = document.getElementById('keywords').value.trim();
   const tone = document.getElementById('tone').value;
 
-  if (!businessName || !topic || !targetAudience || !mainMessage) {
+  if (!businessName || !contactNumber || !topic || !targetAudience || !mainMessage) {
     showError('필수 항목을 모두 입력해주세요.');
     return;
   }
 
   // 전역 변수에 저장
   currentBusinessName = businessName;
+  currentContactNumber = contactNumber;
 
   // 로딩 상태
   setLoading(true);
@@ -811,6 +839,18 @@ async function handleSubmit(e) {
 
     // 품질 점수 계산
     const qualityScore = calculateQualityScore(cards, { domain });
+
+    // 업체 정보 자동 저장
+    saveBusinessInfo({
+      businessName,
+      contactNumber,
+      domain,
+      topic,
+      targetAudience,
+      mainMessage,
+      keywords: keywords ? keywords.split(',').map(k => k.trim()) : [],
+      tone
+    });
 
     // 결과 표시
     displayResults(cards, qualityScore);
@@ -1220,19 +1260,19 @@ function renderCard(card, index) {
 
       <!-- Content -->
       <div class="relative z-10 flex-1 px-6 flex flex-col justify-center">
-        <h2 class="text-3xl font-black mb-4 leading-tight text-white" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.9), -1px -1px 0 rgba(0,0,0,0.5);">${card.title}</h2>
+        <h2 class="text-3xl font-black mb-8 leading-tight text-white" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.9), -1px -1px 0 rgba(0,0,0,0.5);">${card.title}</h2>
         <p class="text-xl font-bold leading-relaxed text-white" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">${card.content}</p>
-        ${card.subContent ? `
-          <p class="mt-4 text-base font-bold border-t border-white/30 pt-4 text-yellow-200" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">
-            ${card.subContent}
-          </p>
-        ` : ''}
       </div>
 
       <!-- Footer -->
       <div class="relative z-10 p-6 pt-4">
         <div class="text-center">
           <span class="text-lg font-black text-yellow-300" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">${currentBusinessName}</span>
+          ${card.type === 'CTA' ? `
+          <div class="mt-2">
+            <span class="text-xl font-black text-white" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">📞 ${currentContactNumber}</span>
+          </div>
+          ` : ''}
         </div>
       </div>
     </div>
@@ -1347,4 +1387,269 @@ function resetForm() {
   document.getElementById('result-section').classList.add('hidden');
   currentCards = [];
   currentCardIndex = 0;
+}
+
+// ============================================
+// 홈으로 이동
+// ============================================
+function goHome() {
+  resetForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ============================================
+// 업체 정보 패널 관리
+// ============================================
+function openBusinessInfoPanel() {
+  const panel = document.getElementById('business-info-panel');
+  const content = document.getElementById('business-panel-content');
+
+  panel.classList.remove('hidden');
+  // 애니메이션을 위해 약간의 지연 후 슬라이드
+  setTimeout(() => {
+    content.classList.remove('translate-x-full');
+  }, 10);
+
+  // 업체 정보 목록 렌더링
+  renderBusinessInfoList();
+}
+
+function closeBusinessInfoPanel() {
+  const panel = document.getElementById('business-info-panel');
+  const content = document.getElementById('business-panel-content');
+
+  content.classList.add('translate-x-full');
+  setTimeout(() => {
+    panel.classList.add('hidden');
+  }, 300);
+}
+
+// ============================================
+// 업체 정보 저장
+// ============================================
+function saveBusinessInfo(businessData) {
+  // 중복 체크 (같은 업체명이 있으면 업데이트)
+  const existingIndex = savedBusinessInfoList.findIndex(
+    item => item.businessName === businessData.businessName
+  );
+
+  if (existingIndex > -1) {
+    // 기존 정보 업데이트
+    savedBusinessInfoList[existingIndex] = {
+      ...savedBusinessInfoList[existingIndex],
+      ...businessData,
+      updatedAt: new Date().toISOString()
+    };
+  } else {
+    // 새 정보 추가
+    savedBusinessInfoList.unshift({
+      id: Date.now().toString(),
+      ...businessData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  // localStorage에 저장
+  localStorage.setItem('saved_business_info', JSON.stringify(savedBusinessInfoList));
+
+  // 배지 업데이트
+  updateBusinessCountBadge();
+}
+
+// ============================================
+// 업체 정보 목록 렌더링
+// ============================================
+function renderBusinessInfoList() {
+  const listContainer = document.getElementById('saved-business-list');
+  const emptyState = document.getElementById('empty-business-state');
+
+  if (savedBusinessInfoList.length === 0) {
+    listContainer.innerHTML = '';
+    emptyState.classList.remove('hidden');
+    return;
+  }
+
+  emptyState.classList.add('hidden');
+
+  listContainer.innerHTML = savedBusinessInfoList.map((info, index) => {
+    const domainLabel = DOMAIN_RULES[info.domain]?.displayName || info.domain;
+    const createdDate = new Date(info.createdAt).toLocaleDateString('ko-KR');
+
+    return `
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-slate-600 transition-all">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <h3 class="font-bold text-white text-base">${info.businessName}</h3>
+            <p class="text-slate-400 text-sm">${info.contactNumber}</p>
+          </div>
+          <span class="px-2 py-1 rounded-lg bg-indigo-600/30 text-indigo-300 text-xs font-medium">${domainLabel}</span>
+        </div>
+
+        <div class="space-y-1 mb-3">
+          <p class="text-slate-500 text-xs">
+            <span class="text-slate-400">타겟:</span> ${info.targetAudience || '-'}
+          </p>
+          <p class="text-slate-500 text-xs">
+            <span class="text-slate-400">주제:</span> ${info.topic ? (info.topic.length > 30 ? info.topic.substring(0, 30) + '...' : info.topic) : '-'}
+          </p>
+          <p class="text-slate-500 text-xs">
+            <span class="text-slate-400">저장일:</span> ${createdDate}
+          </p>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="loadBusinessInfo(${index})" class="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-all flex items-center justify-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+            불러오기
+          </button>
+          <button onclick="deleteBusinessInfo(${index})" class="px-3 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-medium transition-all">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================
+// 업체 정보 불러오기
+// ============================================
+function loadBusinessInfo(index) {
+  const info = savedBusinessInfoList[index];
+  if (!info) return;
+
+  // 폼으로 이동
+  resetForm();
+  closeBusinessInfoPanel();
+
+  // 폼에 데이터 채우기
+  setTimeout(() => {
+    // 도메인 선택
+    if (info.domain) {
+      selectDomain(info.domain);
+    }
+
+    // 타겟 대상 파싱 및 선택
+    if (info.targetAudience) {
+      const parts = info.targetAudience.split(' ');
+      if (parts.length >= 1) {
+        const age = parts[0];
+        if (['10대', '20대', '30대', '40대', '50대', '60대', '70대'].includes(age)) {
+          selectAge(age);
+        }
+      }
+      if (parts.length >= 2) {
+        const job = parts.slice(1).join(' ');
+        // 기본 직업군인지 확인
+        const defaultJobs = ['직장인', '자영업자', '주부', '학생', '프리랜서', '은퇴자', '전문직'];
+        if (defaultJobs.includes(job)) {
+          selectJob(job);
+        } else {
+          // 커스텀 직업군
+          customJobName = job;
+          selectedJob = job;
+          JOB_KEYWORDS[job] = ['맞춤서비스', '전문상담', '편리함', '효율적'];
+          const customBtn = document.getElementById('job-btn-custom');
+          if (customBtn) {
+            customBtn.textContent = job;
+          }
+          selectJob('custom');
+        }
+      }
+    }
+
+    // 주제
+    if (info.topic) {
+      document.getElementById('topic').value = info.topic;
+    }
+
+    // 핵심 메시지
+    if (info.mainMessage) {
+      document.getElementById('main-message').value = info.mainMessage;
+    }
+
+    // 키워드
+    if (info.keywords && info.keywords.length > 0) {
+      selectedKeywords = [...info.keywords];
+      document.getElementById('keywords').value = info.keywords.join(', ');
+      updateKeywordButtons();
+      // 선택된 키워드 버튼 스타일 업데이트
+      info.keywords.forEach(kw => {
+        const btn = document.getElementById(`keyword-btn-${kw}`);
+        if (btn) {
+          btn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+          btn.classList.add('border-cyan-500', 'bg-cyan-500', 'text-white', 'shadow-md');
+        }
+      });
+    }
+
+    // 톤앤매너
+    if (info.tone) {
+      selectTone(info.tone);
+    }
+
+    // 업체명
+    if (info.businessName) {
+      document.getElementById('business-name').value = info.businessName;
+    }
+
+    // 연락처
+    if (info.contactNumber) {
+      document.getElementById('contact-number').value = info.contactNumber;
+    }
+
+    // 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 100);
+}
+
+// ============================================
+// 업체 정보 삭제
+// ============================================
+function deleteBusinessInfo(index) {
+  if (!confirm('이 업체 정보를 삭제하시겠습니까?')) return;
+
+  savedBusinessInfoList.splice(index, 1);
+  localStorage.setItem('saved_business_info', JSON.stringify(savedBusinessInfoList));
+
+  renderBusinessInfoList();
+  updateBusinessCountBadge();
+}
+
+// ============================================
+// 전체 업체 정보 삭제
+// ============================================
+function clearAllBusinessInfo() {
+  if (savedBusinessInfoList.length === 0) {
+    alert('삭제할 업체 정보가 없습니다.');
+    return;
+  }
+
+  if (!confirm('모든 업체 정보를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+
+  savedBusinessInfoList = [];
+  localStorage.setItem('saved_business_info', JSON.stringify(savedBusinessInfoList));
+
+  renderBusinessInfoList();
+  updateBusinessCountBadge();
+}
+
+// ============================================
+// 업체 정보 개수 배지 업데이트
+// ============================================
+function updateBusinessCountBadge() {
+  const badge = document.getElementById('business-count-badge');
+  if (!badge) return;
+
+  if (savedBusinessInfoList.length > 0) {
+    badge.textContent = savedBusinessInfoList.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
 }
