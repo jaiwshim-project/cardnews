@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 카드뉴스 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    .card-gradient-hook { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    .card-gradient-empathy { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .card-gradient-problem { background: linear-gradient(135deg, #eab308, #ca8a04); }
+    .card-gradient-solution { background: linear-gradient(135deg, #a855f7, #9333ea); }
+    .card-gradient-cta { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .tab-active {
+      background-color: #3b82f6;
+      color: white;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-slate-50 to-slate-100 min-h-screen">
+
+  <!-- 메인 컨테이너 -->
+  <div id="app" class="container mx-auto px-4 py-8 max-w-4xl">
+
+    <!-- 헤더 -->
+    <header class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-slate-900 mb-2">AI 카드뉴스 생성기</h1>
+      <p class="text-slate-600">주제만 입력하면 AI가 5장 카드뉴스를 자동 생성합니다</p>
+    </header>
+
+    <!-- API 키 설정 -->
+    <div id="api-key-section" class="bg-white rounded-xl shadow-sm p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4">Gemini API 키 설정</h2>
+      <div class="flex gap-2">
+        <input
+          type="password"
+          id="api-key-input"
+          placeholder="Gemini API 키를 입력하세요"
+          class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+        <button
+          onclick="saveApiKey()"
+          class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          저장
+        </button>
+      </div>
+      <p class="text-sm text-slate-500 mt-2">
+        API 키는 <a href="https://ai.google.dev" target="_blank" class="text-blue-600 underline">https://ai.google.dev</a>에서 무료로 발급받을 수 있습니다.
+      </p>
+      <p id="api-key-status" class="text-sm mt-2 hidden"></p>
+    </div>
+
+    <!-- 입력 폼 -->
+    <div id="form-section" class="bg-white rounded-xl shadow-sm p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4">카드뉴스 정보 입력</h2>
+
+      <form id="cardnews-form" class="space-y-4">
+        <!-- 병원/업체 이름 -->
+        <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+          <label class="block text-sm font-medium text-blue-800 mb-1">병원/업체 이름 *</label>
+          <input
+            type="text"
+            id="business-name"
+            value="서울밝은미소치과"
+            placeholder="예: 서울밝은미소치과"
+            class="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            required
+          >
+        </div>
+
+        <!-- 도메인 -->
+        <div class="bg-green-50 rounded-lg p-4 border border-green-100">
+          <label class="block text-sm font-medium text-green-800 mb-2">도메인</label>
+          <input type="hidden" id="domain" value="hospital">
+          <div class="grid grid-cols-4 gap-2 mb-2">
+            <button
+              type="button"
+              onclick="selectDomain('hospital')"
+              id="domain-btn-hospital"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-blue-500 bg-blue-500 text-white"
+            >
+              병원/의료
+            </button>
+            <button
+              type="button"
+              onclick="selectDomain('election')"
+              id="domain-btn-election"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              선거/정치
+            </button>
+            <button
+              type="button"
+              onclick="selectDomain('education')"
+              id="domain-btn-education"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              교육
+            </button>
+            <button
+              type="button"
+              onclick="selectDomain('realestate')"
+              id="domain-btn-realestate"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              부동산
+            </button>
+          </div>
+          <div class="grid grid-cols-4 gap-2 mb-2">
+            <button
+              type="button"
+              onclick="selectDomain('finance')"
+              id="domain-btn-finance"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              금융/보험
+            </button>
+            <button
+              type="button"
+              onclick="selectDomain('beauty')"
+              id="domain-btn-beauty"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              뷰티/미용
+            </button>
+            <button
+              type="button"
+              onclick="selectDomain('food')"
+              id="domain-btn-food"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              음식/요식업
+            </button>
+            <button
+              type="button"
+              onclick="selectDomain('custom')"
+              id="domain-btn-custom"
+              class="domain-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+            >
+              직접입력
+            </button>
+          </div>
+          <!-- 직접 입력 도메인 -->
+          <div id="custom-domain-input-wrap" class="hidden mt-2">
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="custom-domain-input"
+                placeholder="도메인을 직접 입력하세요 (예: 자동차, 여행, IT)"
+                class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+              <button
+                type="button"
+                onclick="applyCustomDomain()"
+                class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition"
+              >
+                적용
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 주제 -->
+        <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+          <label class="block text-sm font-medium text-yellow-800 mb-1">주제 *</label>
+          <input
+            type="text"
+            id="topic"
+            value="치아 미백의 효과와 주의사항"
+            placeholder="예: 치아 미백의 효과와 주의사항"
+            class="w-full px-4 py-2 border border-yellow-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
+            required
+          >
+        </div>
+
+        <!-- 타겟 대상 -->
+        <div class="bg-purple-50 rounded-lg p-4 border border-purple-100">
+          <label class="block text-sm font-medium text-purple-800 mb-2">타겟 대상 *</label>
+          <input type="hidden" id="target-audience" value="30대 직장인">
+
+          <!-- 연령대 선택 -->
+          <p class="text-xs text-purple-600 mb-1">연령대</p>
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button type="button" onclick="selectAge('10대')" id="age-btn-10대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-green-300">10대</button>
+            <button type="button" onclick="selectAge('20대')" id="age-btn-20대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-green-300">20대</button>
+            <button type="button" onclick="selectAge('30대')" id="age-btn-30대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-green-500 bg-green-500 text-white">30대</button>
+            <button type="button" onclick="selectAge('40대')" id="age-btn-40대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-green-300">40대</button>
+            <button type="button" onclick="selectAge('50대')" id="age-btn-50대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-green-300">50대</button>
+            <button type="button" onclick="selectAge('60대')" id="age-btn-60대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-green-300">60대</button>
+            <button type="button" onclick="selectAge('70대')" id="age-btn-70대" class="age-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-green-300">70대</button>
+          </div>
+
+          <!-- 직업군 선택 -->
+          <p class="text-xs text-purple-600 mb-1">직업군</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="selectJob('직장인')" id="job-btn-직장인" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-purple-500 bg-purple-500 text-white">직장인</button>
+            <button type="button" onclick="selectJob('자영업자')" id="job-btn-자영업자" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-purple-300">자영업자</button>
+            <button type="button" onclick="selectJob('주부')" id="job-btn-주부" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-purple-300">주부</button>
+            <button type="button" onclick="selectJob('학생')" id="job-btn-학생" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-purple-300">학생</button>
+            <button type="button" onclick="selectJob('프리랜서')" id="job-btn-프리랜서" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-purple-300">프리랜서</button>
+            <button type="button" onclick="selectJob('은퇴자')" id="job-btn-은퇴자" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-purple-300">은퇴자</button>
+            <button type="button" onclick="selectJob('전문직')" id="job-btn-전문직" class="job-btn px-3 py-2 rounded-lg text-sm font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-purple-300">전문직</button>
+          </div>
+        </div>
+
+        <!-- 핵심 메시지 -->
+        <div class="bg-orange-50 rounded-lg p-4 border border-orange-100">
+          <label class="block text-sm font-medium text-orange-800 mb-1">핵심 메시지 *</label>
+          <textarea
+            id="main-message"
+            rows="3"
+            placeholder="전달하고 싶은 핵심 메시지를 입력하세요"
+            class="w-full px-4 py-2 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+            required
+          >전문 치과에서 안전하고 효과적인 미백 치료를 받아보세요. 셀프 미백의 위험성과 전문 치료의 장점을 알려드립니다.</textarea>
+        </div>
+
+        <!-- 키워드 -->
+        <div class="bg-pink-50 rounded-lg p-4 border border-pink-100">
+          <label class="block text-sm font-medium text-pink-800 mb-2">키워드 (복수 선택 가능)</label>
+          <input type="hidden" id="keywords" value="">
+          <div id="keyword-buttons" class="flex flex-wrap gap-2 mb-3">
+            <!-- 키워드 버튼이 동적으로 생성됨 -->
+          </div>
+          <!-- 자유 입력 -->
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="custom-keyword-input"
+              placeholder="직접 입력"
+              class="flex-1 px-3 py-2 border border-pink-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
+              onkeypress="if(event.key === 'Enter') { event.preventDefault(); addCustomKeyword(); }"
+            >
+            <button
+              type="button"
+              onclick="addCustomKeyword()"
+              class="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-medium hover:bg-pink-600 transition"
+            >
+              추가
+            </button>
+          </div>
+          <p class="text-xs text-pink-400 mt-2">* 도메인, 연령대, 직업군에 따라 추천 키워드가 변경됩니다</p>
+        </div>
+
+        <!-- 톤앤매너 -->
+        <div class="bg-slate-100 rounded-lg p-4 border border-slate-200">
+          <label class="block text-sm font-medium text-slate-700 mb-2">톤앤매너</label>
+          <input type="hidden" id="tone" value="professional">
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              type="button"
+              onclick="selectTone('professional')"
+              id="tone-btn-professional"
+              class="tone-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-500 bg-slate-500 text-white"
+            >
+              전문적
+            </button>
+            <button
+              type="button"
+              onclick="selectTone('friendly')"
+              id="tone-btn-friendly"
+              class="tone-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+            >
+              친근한
+            </button>
+            <button
+              type="button"
+              onclick="selectTone('formal')"
+              id="tone-btn-formal"
+              class="tone-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+            >
+              격식체
+            </button>
+            <button
+              type="button"
+              onclick="selectTone('urgent')"
+              id="tone-btn-urgent"
+              class="tone-btn px-4 py-3 rounded-lg font-medium transition border-2 border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+            >
+              긴급한
+            </button>
+          </div>
+        </div>
+
+        <!-- 에러 메시지 -->
+        <div id="error-message" class="hidden p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
+
+        <!-- 생성 버튼 -->
+        <button
+          type="submit"
+          id="generate-btn"
+          class="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+        >
+          <span>카드뉴스 생성하기</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- 결과 섹션 (숨김) -->
+    <div id="result-section" class="hidden">
+
+      <!-- 품질 점수 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">품질 점수</h2>
+          <span id="overall-score" class="text-3xl font-bold"></span>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div class="text-center p-3 bg-slate-50 rounded-lg">
+            <div class="text-sm text-slate-600">HOOK 강도</div>
+            <div id="hook-score" class="text-xl font-bold"></div>
+          </div>
+          <div class="text-center p-3 bg-slate-50 rounded-lg">
+            <div class="text-sm text-slate-600">흐름 일관성</div>
+            <div id="flow-score" class="text-xl font-bold"></div>
+          </div>
+          <div class="text-center p-3 bg-slate-50 rounded-lg">
+            <div class="text-sm text-slate-600">CTA 명확성</div>
+            <div id="cta-score" class="text-xl font-bold"></div>
+          </div>
+          <div class="text-center p-3 bg-slate-50 rounded-lg">
+            <div class="text-sm text-slate-600">도메인 적합성</div>
+            <div id="domain-score" class="text-xl font-bold"></div>
+          </div>
+        </div>
+
+        <div id="feedback-section" class="border-t pt-4">
+          <h4 class="font-medium mb-2">피드백</h4>
+          <ul id="feedback-list" class="space-y-1 text-sm text-slate-600"></ul>
+        </div>
+      </div>
+
+      <!-- 카드 탭 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">카드 미리보기</h2>
+          <button
+            onclick="downloadAllCards()"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
+          >
+            전체 다운로드
+          </button>
+        </div>
+
+        <!-- 탭 버튼 -->
+        <div class="flex gap-1 mb-6 overflow-x-auto">
+          <button onclick="showCard(0)" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 transition whitespace-nowrap" data-index="0">관심 유도</button>
+          <button onclick="showCard(1)" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 transition whitespace-nowrap" data-index="1">공감 형성</button>
+          <button onclick="showCard(2)" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 transition whitespace-nowrap" data-index="2">문제 제기</button>
+          <button onclick="showCard(3)" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 transition whitespace-nowrap" data-index="3">해결책 제시</button>
+          <button onclick="showCard(4)" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 transition whitespace-nowrap" data-index="4">행동 유도</button>
+        </div>
+
+        <!-- 카드 컨테이너 -->
+        <div id="card-container" class="flex flex-col items-center gap-4">
+          <!-- 카드가 여기에 렌더링됨 -->
+        </div>
+
+        <!-- 개별 다운로드 버튼 -->
+        <div class="text-center mt-4">
+          <button
+            onclick="downloadCurrentCard()"
+            class="px-6 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition text-sm"
+          >
+            이 카드 다운로드 (PNG)
+          </button>
+        </div>
+      </div>
+
+      <!-- 전체 카드 보기 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-4">전체 카드 보기</h2>
+        <div id="all-cards-container" class="flex flex-wrap justify-center gap-4">
+          <!-- 작은 카드 미리보기 -->
+        </div>
+      </div>
+
+      <!-- 다시 만들기 버튼 -->
+      <div class="text-center">
+        <button
+          onclick="resetForm()"
+          class="px-8 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition"
+        >
+          새로운 카드뉴스 만들기
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
