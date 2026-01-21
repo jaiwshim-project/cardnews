@@ -840,16 +840,11 @@ async function handleSubmit(e) {
     // 품질 점수 계산
     const qualityScore = calculateQualityScore(cards, { domain });
 
-    // 업체 정보 자동 저장
+    // 업체 정보 자동 저장 (업체명, 연락처, 도메인만)
     saveBusinessInfo({
       businessName,
       contactNumber,
-      domain,
-      topic,
-      targetAudience,
-      mainMessage,
-      keywords: keywords ? keywords.split(',').map(k => k.trim()) : [],
-      tone
+      domain
     });
 
     // 결과 표시
@@ -1474,7 +1469,6 @@ function renderBusinessInfoList() {
 
   listContainer.innerHTML = savedBusinessInfoList.map((info, index) => {
     const domainLabel = DOMAIN_RULES[info.domain]?.displayName || info.domain;
-    const createdDate = new Date(info.createdAt).toLocaleDateString('ko-KR');
 
     return `
       <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-slate-600 transition-all">
@@ -1484,18 +1478,6 @@ function renderBusinessInfoList() {
             <p class="text-slate-400 text-sm">${info.contactNumber}</p>
           </div>
           <span class="px-2 py-1 rounded-lg bg-indigo-600/30 text-indigo-300 text-xs font-medium">${domainLabel}</span>
-        </div>
-
-        <div class="space-y-1 mb-3">
-          <p class="text-slate-500 text-xs">
-            <span class="text-slate-400">타겟:</span> ${info.targetAudience || '-'}
-          </p>
-          <p class="text-slate-500 text-xs">
-            <span class="text-slate-400">주제:</span> ${info.topic ? (info.topic.length > 30 ? info.topic.substring(0, 30) + '...' : info.topic) : '-'}
-          </p>
-          <p class="text-slate-500 text-xs">
-            <span class="text-slate-400">저장일:</span> ${createdDate}
-          </p>
         </div>
 
         <div class="flex gap-2">
@@ -1527,70 +1509,11 @@ function loadBusinessInfo(index) {
   resetForm();
   closeBusinessInfoPanel();
 
-  // 폼에 데이터 채우기
+  // 폼에 데이터 채우기 (업체명, 연락처, 도메인만)
   setTimeout(() => {
     // 도메인 선택
     if (info.domain) {
       selectDomain(info.domain);
-    }
-
-    // 타겟 대상 파싱 및 선택
-    if (info.targetAudience) {
-      const parts = info.targetAudience.split(' ');
-      if (parts.length >= 1) {
-        const age = parts[0];
-        if (['10대', '20대', '30대', '40대', '50대', '60대', '70대'].includes(age)) {
-          selectAge(age);
-        }
-      }
-      if (parts.length >= 2) {
-        const job = parts.slice(1).join(' ');
-        // 기본 직업군인지 확인
-        const defaultJobs = ['직장인', '자영업자', '주부', '학생', '프리랜서', '은퇴자', '전문직'];
-        if (defaultJobs.includes(job)) {
-          selectJob(job);
-        } else {
-          // 커스텀 직업군
-          customJobName = job;
-          selectedJob = job;
-          JOB_KEYWORDS[job] = ['맞춤서비스', '전문상담', '편리함', '효율적'];
-          const customBtn = document.getElementById('job-btn-custom');
-          if (customBtn) {
-            customBtn.textContent = job;
-          }
-          selectJob('custom');
-        }
-      }
-    }
-
-    // 주제
-    if (info.topic) {
-      document.getElementById('topic').value = info.topic;
-    }
-
-    // 핵심 메시지
-    if (info.mainMessage) {
-      document.getElementById('main-message').value = info.mainMessage;
-    }
-
-    // 키워드
-    if (info.keywords && info.keywords.length > 0) {
-      selectedKeywords = [...info.keywords];
-      document.getElementById('keywords').value = info.keywords.join(', ');
-      updateKeywordButtons();
-      // 선택된 키워드 버튼 스타일 업데이트
-      info.keywords.forEach(kw => {
-        const btn = document.getElementById(`keyword-btn-${kw}`);
-        if (btn) {
-          btn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
-          btn.classList.add('border-cyan-500', 'bg-cyan-500', 'text-white', 'shadow-md');
-        }
-      });
-    }
-
-    // 톤앤매너
-    if (info.tone) {
-      selectTone(info.tone);
     }
 
     // 업체명
